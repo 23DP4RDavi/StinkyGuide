@@ -36,3 +36,4 @@ Back up `database/database.sqlite` to retain your player accounts and posts. Dat
 Use `php artisan test` to run the Laravel feature tests.
 
 Game cover art is served by Steam’s public artwork CDN, so viewing images requires an internet connection.
+
