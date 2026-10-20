@@ -32,7 +32,40 @@ class DatabaseSeeder extends Seeder
                 ['name' => 'Cyberpunk 2077', 'genre' => 'RPG · Open world', 'steam_app_id' => 1091500, 'tags_json' => '["Adventure","RPG"]', 'match_score' => 90, 'platform' => 'PC · PS5'],
             ];
 
-            foreach ($gameDefinitions as $row) {
+            $additionalGames = [
+                ['name' => 'Hollow Knight', 'genre' => 'Metroidvania · Action', 'steam_app_id' => 367520, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 94, 'platform' => 'PC · SWITCH'],
+                ['name' => 'Hollow Knight: Silksong', 'genre' => 'Metroidvania · Action', 'steam_app_id' => 1030300, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 93, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Terraria', 'genre' => 'Sandbox · Adventure', 'steam_app_id' => 105600, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 92, 'platform' => 'EVERYWHERE'],
+                ['name' => 'Celeste', 'genre' => 'Platformer · Indie', 'steam_app_id' => 504230, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 91, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Portal 2', 'genre' => 'Puzzle · Adventure', 'steam_app_id' => 620, 'tags_json' => '["Indie","Strategy"]', 'match_score' => 91, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'The Witcher 3: Wild Hunt', 'genre' => 'RPG · Open world', 'steam_app_id' => 292030, 'tags_json' => '["Adventure","RPG"]', 'match_score' => 96, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Sekiro: Shadows Die Twice', 'genre' => 'Action · Adventure', 'steam_app_id' => 814380, 'tags_json' => '["Adventure","RPG"]', 'match_score' => 90, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Monster Hunter: World', 'genre' => 'Action RPG · Co-op', 'steam_app_id' => 582010, 'tags_json' => '["Adventure","RPG"]', 'match_score' => 90, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Subnautica', 'genre' => 'Survival · Exploration', 'steam_app_id' => 264710, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 90, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Outer Wilds', 'genre' => 'Exploration · Mystery', 'steam_app_id' => 753640, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 95, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Disco Elysium', 'genre' => 'RPG · Detective', 'steam_app_id' => 632470, 'tags_json' => '["RPG","Indie"]', 'match_score' => 90, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Balatro', 'genre' => 'Deckbuilder · Roguelike', 'steam_app_id' => 2379780, 'tags_json' => '["Strategy","Indie"]', 'match_score' => 92, 'platform' => 'EVERYWHERE'],
+                ['name' => 'RimWorld', 'genre' => 'Colony sim · Strategy', 'steam_app_id' => 294100, 'tags_json' => '["Strategy","Indie"]', 'match_score' => 89, 'platform' => 'PC'],
+                ['name' => 'Factorio', 'genre' => 'Factory sim · Strategy', 'steam_app_id' => 427520, 'tags_json' => '["Strategy","Indie"]', 'match_score' => 89, 'platform' => 'PC · SWITCH'],
+                ['name' => 'Dave the Diver', 'genre' => 'Adventure · Fishing', 'steam_app_id' => 1868140, 'tags_json' => '["Cozy","Indie"]', 'match_score' => 88, 'platform' => 'PC · SWITCH'],
+                ['name' => 'Spiritfarer', 'genre' => 'Cozy · Management', 'steam_app_id' => 972660, 'tags_json' => '["Cozy","Indie"]', 'match_score' => 90, 'platform' => 'EVERYWHERE'],
+                ['name' => 'Phasmophobia', 'genre' => 'Horror · Co-op', 'steam_app_id' => 739630, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 84, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Lethal Company', 'genre' => 'Horror · Co-op', 'steam_app_id' => 1966720, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 87, 'platform' => 'PC'],
+                ['name' => 'Deep Rock Galactic', 'genre' => 'Co-op · Shooter', 'steam_app_id' => 548430, 'tags_json' => '["Adventure","Strategy"]', 'match_score' => 88, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Cuphead', 'genre' => 'Platformer · Boss rush', 'steam_app_id' => 268910, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 88, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'No Man’s Sky', 'genre' => 'Exploration · Survival', 'steam_app_id' => 275850, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 87, 'platform' => 'EVERYWHERE'],
+                ['name' => 'Ori and the Will of the Wisps', 'genre' => 'Metroidvania · Adventure', 'steam_app_id' => 1057090, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 91, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Overcooked! 2', 'genre' => 'Co-op · Cooking', 'steam_app_id' => 728880, 'tags_json' => '["Cozy","Indie"]', 'match_score' => 86, 'platform' => 'EVERYWHERE'],
+                ['name' => 'The Binding of Isaac: Rebirth', 'genre' => 'Roguelike · Action', 'steam_app_id' => 250900, 'tags_json' => '["Indie","Strategy"]', 'match_score' => 88, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'A Short Hike', 'genre' => 'Cozy · Exploration', 'steam_app_id' => 1055540, 'tags_json' => '["Cozy","Indie"]', 'match_score' => 87, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Return of the Obra Dinn', 'genre' => 'Puzzle · Mystery', 'steam_app_id' => 653530, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 89, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Inscryption', 'genre' => 'Card game · Horror', 'steam_app_id' => 1092790, 'tags_json' => '["Strategy","Indie"]', 'match_score' => 90, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Valheim', 'genre' => 'Survival · Co-op', 'steam_app_id' => 892970, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 88, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Vampire Survivors', 'genre' => 'Roguelike · Action', 'steam_app_id' => 1794680, 'tags_json' => '["Indie","Strategy"]', 'match_score' => 88, 'platform' => 'EVERYWHERE'],
+                ['name' => 'Grounded', 'genre' => 'Survival · Co-op', 'steam_app_id' => 962130, 'tags_json' => '["Adventure","Cozy"]', 'match_score' => 85, 'platform' => 'PC · CONSOLE'],
+            ];
+
+            foreach ([...$gameDefinitions, ...$additionalGames] as $row) {
                 Game::unguarded(fn () => Game::firstOrCreate(
                     ['steam_app_id' => (int) $row['steam_app_id']],
                     [

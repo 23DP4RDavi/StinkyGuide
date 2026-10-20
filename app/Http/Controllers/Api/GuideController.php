@@ -13,7 +13,17 @@ use Illuminate\Support\Facades\DB;
 
 class GuideController extends Controller
 {
-    private const TYPES = ['beginner', 'builds', 'secrets'];
+    private const TYPES = [
+        'beginner',
+        'walkthrough',
+        'builds',
+        'bosses',
+        'secrets',
+        'collectibles',
+        'achievements',
+        'tips',
+        'other',
+    ];
 
     public function index(Request $request): JsonResponse
     {
@@ -138,7 +148,17 @@ class GuideController extends Controller
 
     private function serializeGuide(Guide $guide): array
     {
-        $typeLabels = ['beginner' => 'BEGINNER FRIENDLY', 'builds' => 'BUILDS & LOADOUTS', 'secrets' => 'SECRETS & QUESTS'];
+        $typeLabels = [
+            'beginner' => 'BEGINNER FRIENDLY',
+            'walkthrough' => 'WALKTHROUGH',
+            'builds' => 'BUILDS & LOADOUTS',
+            'bosses' => 'BOSS STRATEGIES',
+            'secrets' => 'QUESTS & SECRETS',
+            'collectibles' => 'COLLECTIBLES',
+            'achievements' => 'ACHIEVEMENTS',
+            'tips' => 'TIPS & TRICKS',
+            'other' => 'SOMETHING ELSE',
+        ];
 
         return [
             'id' => $guide->id,

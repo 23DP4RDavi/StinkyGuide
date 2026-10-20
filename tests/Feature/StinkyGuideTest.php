@@ -26,7 +26,10 @@ class StinkyGuideTest extends TestCase
             ->assertSee('StinkyGuide')
             ->assertSee('id="app"', false);
 
-        $this->getJson('/api/games')->assertOk()->assertJsonCount(9, 'games');
+        $this->getJson('/api/games')->assertOk()
+            ->assertJsonCount(39, 'games')
+            ->assertJsonFragment(['name' => 'Hollow Knight'])
+            ->assertJsonFragment(['name' => 'A Short Hike']);
         $this->getJson('/api/guides')->assertOk()->assertJsonCount(8, 'guides');
         $this->getJson('/api/reviews')->assertOk()->assertJsonPath('summary.count', 4);
     }
@@ -95,16 +98,35 @@ class StinkyGuideTest extends TestCase
         $this->assertDatabaseMissing('game_libraries', ['user_id' => $user->id, 'game_id' => $game->id]);
     }
 
+    public function test_recommendations_rank_games_by_the_players_selected_interests(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $this->putJson('/api/interests', ['interests' => ['Cozy', 'Indie']])
+            ->assertOk()
+            ->assertJsonPath('interests', ['Cozy', 'Indie']);
+
+        $this->getJson('/api/games')
+            ->assertOk()
+            ->assertJsonPath('games.0.match', 100)
+            ->assertJsonFragment(['name' => 'Dredge', 'match' => 100])
+            ->assertJsonFragment(['name' => 'Stardew Valley', 'match' => 100])
+            ->assertJsonFragment(['name' => 'Cyberpunk 2077', 'match' => 0]);
+    }
+
     public function test_players_can_publish_guides_and_reviews_and_see_updated_ratings(): void
     {
         $this->actingAs(User::factory()->create());
 
         $guide = $this->postJson('/api/guides', [
-            'game' => 'Elden Ring',
-            'title' => 'My first helpful guide',
+            'game' => 'Cosmic Soup Odyssey',
+            'title' => 'My first cosmic soup walkthrough',
             'body' => 'A detailed guide that explains all the essential steps for beating the first boss.',
-            'type' => 'beginner',
-        ])->assertCreated()->assertJsonPath('guide.game', 'ELDEN RING');
+            'type' => 'walkthrough',
+        ])->assertCreated()
+            ->assertJsonPath('guide.game', 'COSMIC SOUP ODYSSEY')
+            ->assertJsonPath('guide.type', 'walkthrough')
+            ->assertJsonPath('guide.tag', 'WALKTHROUGH');
 
         $game = Game::where('name', 'Elden Ring')->firstOrFail();
         $this->postJson('/api/reviews', [
@@ -115,14 +137,19 @@ class StinkyGuideTest extends TestCase
         ])->assertCreated()->assertJsonPath('review.hoursPlayed', 55);
 
         $this->getJson('/api/games')->assertOk()
-            ->assertJsonPath('games.0.name', 'Baldur\'s Gate 3');
+            ->assertJsonPath('games.0.name', 'Elden Ring')
+            ->assertJsonPath('games.0.match', 96);
         $this->getJson("/api/games/{$game->id}")
             ->assertOk()->assertJsonPath('game.reviewCount', 2);
         $this->getJson('/api/stats')
             ->assertOk()
             ->assertJsonPath('guides', 9)
             ->assertJsonPath('players', 1);
-        $this->assertDatabaseHas('guides', ['title' => 'My first helpful guide']);
+        $this->assertDatabaseHas('guides', [
+            'game' => 'COSMIC SOUP ODYSSEY',
+            'title' => 'My first cosmic soup walkthrough',
+            'type' => 'walkthrough',
+        ]);
         $this->assertDatabaseHas('reviews', ['game_name' => 'Elden Ring', 'hours_played' => 55]);
         $guide->assertJsonPath('guide.author', $this->app['auth']->user()->name);
     }

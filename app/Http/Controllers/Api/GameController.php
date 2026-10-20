@@ -34,7 +34,7 @@ class GameController extends Controller
                 $matched = count(array_intersect($tags, $interests));
                 $match = $interests === []
                     ? $game->match_score
-                    : min(99, max(68, (int) round(($matched / max(count($tags), 1)) * 32 + 68)));
+                    : (int) round(($matched / max(count($tags), 1)) * 100);
 
                 return [
                     'id' => $game->id,
@@ -49,7 +49,9 @@ class GameController extends Controller
                     'reviewCount' => $game->reviews_count,
                     'libraryStatus' => $library[$game->id] ?? null,
                 ];
-            });
+            })
+            ->sortByDesc('match')
+            ->values();
 
         return response()->json(['games' => $games, 'interests' => $interests]);
     }

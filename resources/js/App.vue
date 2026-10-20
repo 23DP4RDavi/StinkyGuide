@@ -11,8 +11,14 @@ const interestOptions = [
 const guideTypes = [
   { value: 'all', label: 'All guides' },
   { value: 'beginner', label: 'Beginner friendly' },
+  { value: 'walkthrough', label: 'Walkthroughs' },
   { value: 'builds', label: 'Builds & loadouts' },
+  { value: 'bosses', label: 'Boss strategies' },
   { value: 'secrets', label: 'Secrets & quests' },
+  { value: 'collectibles', label: 'Collectibles' },
+  { value: 'achievements', label: 'Achievements' },
+  { value: 'tips', label: 'Tips & tricks' },
+  { value: 'other', label: 'Other' },
 ];
 const libraryStatuses = [
   { value: 'wishlist', label: 'Backlog' },
@@ -32,6 +38,7 @@ const state = ref({
   stats: { games: 0, guides: 0, players: 0, reviews: 0, averageRating: 0 },
   summary: { count: 0, averageRating: 0 },
   search: '',
+  showAllGames: false,
   guideFilter: 'all',
   guideSort: 'helpful',
   reviewFilter: 0,
@@ -84,7 +91,7 @@ const filteredGames = computed(() => {
   if (term && !games.length) {
     games = state.value.games.filter((game) => `${game.name} ${game.genre} ${game.tags.join(' ')}`.toLowerCase().includes(term));
   }
-  return games;
+  return games.sort((a, b) => b.match - a.match || a.name.localeCompare(b.name));
 });
 
 const filteredGuides = computed(() => {
@@ -110,6 +117,11 @@ const filteredReviews = computed(() => {
 const featuredGame = computed(() => state.value.games.find((game) => game.name === 'Elden Ring') ?? state.value.games[0]);
 const featuredReview = computed(() => state.value.reviews[0] ?? null);
 const savedGameIds = computed(() => new Set(state.value.library.map((entry) => entry.game.id)));
+
+function recommendationReason(game) {
+  const matchingTags = game.tags.filter((tag) => state.value.interests.includes(tag));
+  return matchingTags.length ? `Because you like ${matchingTags.join(' + ')}` : 'A community favorite';
+}
 
 async function api(url, options = {}) {
   const method = options.method ?? 'GET';
@@ -140,13 +152,18 @@ function notify(message) {
 
 function navigate(view) {
   state.value.view = view;
-  if (view === 'discover') state.value.search = '';
   nextTick(() => {
-    const target = { guides: '#guides', reviews: '#reviews' }[view];
+    const target = { discover: '#for-you', guides: '#guides', reviews: '#reviews' }[view];
     if (target) document.querySelector(target)?.scrollIntoView({ behavior: 'smooth' });
     else window.scrollTo({ top: 0, behavior: 'smooth' });
   });
   if (view === 'library' || view === 'saved') loadPersonalLists();
+}
+
+function searchEverything() {
+  state.value.view = 'discover';
+  state.value.showAllGames = true;
+  nextTick(() => document.querySelector('#for-you')?.scrollIntoView({ behavior: 'smooth' }));
 }
 
 function openAuth(mode = 'login') {
@@ -257,6 +274,7 @@ async function logout() {
 
 async function toggleInterest(interest) {
   const previous = [...state.value.interests];
+  state.value.showAllGames = false;
   state.value.interests = previous.includes(interest)
     ? previous.filter((item) => item !== interest)
     : [...previous, interest];
@@ -268,8 +286,9 @@ async function toggleInterest(interest) {
       : [...previous, interest];
     state.value.games = state.value.games.map((game) => {
       const overlap = game.tags.filter((tag) => state.value.interests.includes(tag)).length;
-      return { ...game, match: state.value.interests.length ? Math.min(99, Math.max(68, Math.round(overlap / game.tags.length * 32 + 68))) : 75 };
+      return { ...game, match: state.value.interests.length ? Math.round(overlap / Math.max(game.tags.length, 1) * 100) : game.match };
     });
+    state.value.games.sort((a, b) => b.match - a.match || a.name.localeCompare(b.name));
     return;
   }
   try {
@@ -463,10 +482,10 @@ onMounted(async () => {
     <main v-if="state.view === 'discover' || state.view === 'guides' || state.view === 'reviews'">
       <section class="hero page-width" id="discover">
         <div class="hero-copy">
-          <div class="eyebrow"><span class="live-dot"></span> YOUR NEXT FAVORITE IS OUT THERE</div>
-          <h1>Good games.<br /><span>Better guides.</span></h1>
-          <p class="hero-intro">For the “one more try” people. Find your next obsession, dodge the spoilers, and maybe—just maybe—beat that boss.</p>
-          <form class="search-bar" role="search" @submit.prevent="navigate('guides')">
+            <div class="eyebrow"><span class="live-dot"></span> A LITTLE SIDE QUEST FOR YOUR NEXT FAVORITE</div>
+            <h1>Good games.<br /><span>Great game pals.</span></h1>
+            <p class="hero-intro">Find your next obsession, trade the tips you wish you had, and help somebody else finally beat that boss.</p>
+          <form class="search-bar" role="search" @submit.prevent="searchEverything">
             <span class="search-icon" aria-hidden="true">⌕</span>
             <input id="search-input" v-model="state.search" type="search" placeholder="Search games, guides, creators..." aria-label="Search games, guides, and creators" />
             <kbd>↵</kbd>
@@ -488,24 +507,24 @@ onMounted(async () => {
       </section>
 
       <section class="section page-width" id="for-you">
-        <div class="section-heading"><div><div class="eyebrow">A LITTLE SOMETHING FOR YOU <span class="heading-spark">✳</span></div><h2>Your kind of <span>game.</span></h2><p class="section-description">Tell us your type. No, not your “it has a skill tree” type. (Okay, that too.)</p></div><button class="text-button" @click="notify('Choose your gaming interests. Your backlog, your rules.')">Tune my picks <span>↗</span></button></div>
+        <div class="section-heading"><div><div class="eyebrow">HAND-PICKED FOR YOUR PLAYER TWO ENERGY <span class="heading-spark">✳</span></div><h2>Your next <span>side quest.</span></h2><p class="section-description">Pick what you love. We’ll put the closest matches first—no loot boxes, just good games.</p></div><button class="text-button" @click="notify('Pick a few game vibes and we’ll sort your recommendations.')">Tune my picks <span>↗</span></button></div>
         <div class="interest-row" aria-label="Choose your gaming interests">
           <button v-for="interest in interestOptions" :key="interest.name" class="interest-chip" :class="{ selected: state.interests.includes(interest.name) }" @click="toggleInterest(interest.name)">{{ interest.icon }} &nbsp;{{ interest.name === 'Indie' ? 'Indie gems' : interest.name }}</button>
-          <span class="interest-hint">Pick a few. We have a completely normal amount of opinions.</span>
+          <span class="interest-hint">Pick a few and your best matches bubble to the top.</span>
         </div>
         <div v-if="filteredGames.length" class="game-grid">
-          <article v-for="game in filteredGames.slice(0, 4)" :key="game.id" class="game-card">
+          <article v-for="game in filteredGames.slice(0, state.showAllGames ? filteredGames.length : 4)" :key="game.id" class="game-card">
             <button class="game-art" :style="{ backgroundImage: `linear-gradient(0deg,rgba(13,14,12,.45),transparent 70%),url('${game.imageUrl}')` }" :aria-label="`View ${game.name}`" @click="openGame(game)"><span class="game-platform">{{ game.platform }}</span><span class="art-word">{{ game.name.toUpperCase() }}</span></button>
-            <div class="game-card-info"><div class="game-meta"><button class="plain-title" @click="openGame(game)">{{ game.name }}</button><span class="game-rating">★ {{ game.rating }}</span></div><div class="game-genre">{{ game.genre }}</div><div class="game-match"><span>{{ game.match }}% your vibe</span><span class="match-bar"><span :style="{ width: `${game.match}%` }"></span></span></div><button class="game-library-button" :class="`library-${game.libraryStatus || 'none'}`" @click="cycleLibrary(game)">{{ game.libraryStatus ? `${libraryStatuses.find((item) => item.value === game.libraryStatus)?.label} · change` : '＋ Add to my games' }}</button></div>
+            <div class="game-card-info"><div class="game-meta"><button class="plain-title" @click="openGame(game)">{{ game.name }}</button><span class="game-rating">★ {{ game.rating }}</span></div><div class="game-genre">{{ game.genre }}</div><div class="game-match"><span>{{ game.match }}% match</span><span class="match-bar"><span :style="{ width: `${game.match}%` }"></span></span></div><span class="game-match-reason">{{ recommendationReason(game) }}</span><button class="game-library-button" :class="`library-${game.libraryStatus || 'none'}`" @click="cycleLibrary(game)">{{ game.libraryStatus ? `${libraryStatuses.find((item) => item.value === game.libraryStatus)?.label} · change` : '＋ Add to my games' }}</button></div>
           </article>
         </div>
         <p v-else class="section-description empty-state">No games match that search. Try the other 47,000 on your wishlist.</p>
-        <div class="center-action"><button class="button button-outline" @click="navigate('library')">View my game library <span>→</span></button></div>
+        <div class="center-action"><button v-if="filteredGames.length > 4" class="button button-outline" @click="state.showAllGames = !state.showAllGames">{{ state.showAllGames ? 'Show top matches' : `See all ${filteredGames.length} game picks` }} <span>{{ state.showAllGames ? '↑' : '→' }}</span></button><button class="button button-outline" @click="navigate('library')">View my game library <span>→</span></button></div>
       </section>
 
       <section class="section guides-section" id="guides">
         <div class="page-width">
-          <div class="section-heading"><div><div class="eyebrow">FROM THE COMMUNITY</div><h2>Guides that <span>get it.</span></h2><p class="section-description">No fluff, fake “easy” mode claims, or 40-minute videos for one answer.</p></div><button class="button button-outline" @click="openGuideForm">＋ &nbsp;Write a guide</button></div>
+          <div class="section-heading"><div><div class="eyebrow">PLAYER KNOW-HOW, FRESH FROM THE CAMPFIRE</div><h2>Guides that <span>get it.</span></h2><p class="section-description">Any game, any genre, any “how do I open this door?” moment. Your guide belongs here.</p></div><button class="button button-outline" @click="openGuideForm">＋ &nbsp;Write a guide</button></div>
           <div class="guide-toolbar"><div class="filter-tabs" role="tablist" aria-label="Filter guides"><button v-for="filter in guideTypes" :key="filter.value" class="filter-tab" :class="{ active: state.guideFilter === filter.value }" role="tab" @click="state.guideFilter = filter.value; state.showAllGuides = false">{{ filter.label }} <span v-if="filter.value === 'all'">{{ state.guides.length }}</span></button></div><button class="sort-button" @click="state.guideSort = state.guideSort === 'helpful' ? 'newest' : 'helpful'">↕ &nbsp;{{ state.guideSort === 'helpful' ? 'Most helpful' : 'Newest first' }}</button></div>
           <div v-if="filteredGuides.length" class="guide-grid">
             <article v-for="guide in filteredGuides" :key="guide.id" class="guide-card">
@@ -562,8 +581,8 @@ onMounted(async () => {
     </template>
 
     <template v-else-if="state.modal === 'guide'">
-      <div class="modal-eyebrow">MAKE SOMEONE'S NEXT RUN BETTER</div><h2>Write a <span>guide.</span></h2><p>Be specific, be kind, and tell players what you wish you'd known.</p>
-      <form class="modal-form" @submit.prevent="submitGuide"><label>Guide title<input v-model="guideForm.title" minlength="8" maxlength="90" placeholder="e.g. The no-stress guide to your first run" required /></label><div class="form-row"><label>Game<input v-model="guideForm.game" minlength="2" maxlength="60" placeholder="Which game?" required /></label><label>Guide type<select v-model="guideForm.type"><option value="beginner">Beginner friendly</option><option value="builds">Builds & loadouts</option><option value="secrets">Secrets & quests</option></select></label></div><label>Your guide<textarea v-model="guideForm.body" rows="6" minlength="30" maxlength="3000" placeholder="Break it down into useful steps. What should a player know?" required></textarea><small class="character-count">{{ guideForm.body.length }} / 3,000 characters. Concision is a build.</small></label><p v-if="state.error" class="form-error" role="alert">{{ state.error }}</p><button class="button button-accent modal-submit" :disabled="submitting">{{ submitting ? 'Publishing…' : 'Publish guide ↗' }}</button></form>
+      <div class="modal-eyebrow">MAKE SOMEONE'S NEXT RUN BETTER</div><h2>Write a <span>guide.</span></h2><p>Any game is welcome—even the tiny indie one with 14 players. Be specific, be kind, and share what you wish you'd known.</p>
+      <form class="modal-form" @submit.prevent="submitGuide"><label>Guide title<input v-model="guideForm.title" minlength="8" maxlength="90" placeholder="e.g. The no-stress guide to your first run" required /></label><div class="form-row"><label>Game <span class="optional-label">Any game, not just our picks</span><input v-model="guideForm.game" list="guide-game-options" minlength="2" maxlength="60" placeholder="Type any game name" required /><datalist id="guide-game-options"><option v-for="game in state.games" :key="game.id" :value="game.name" /></datalist></label><label>Guide type<select v-model="guideForm.type"><option value="beginner">Beginner friendly</option><option value="walkthrough">Walkthrough</option><option value="builds">Builds & loadouts</option><option value="bosses">Boss strategies</option><option value="secrets">Quests & secrets</option><option value="collectibles">Collectibles</option><option value="achievements">Achievements</option><option value="tips">Tips & tricks</option><option value="other">Something else</option></select></label></div><label>Your guide<textarea v-model="guideForm.body" rows="6" minlength="30" maxlength="3000" placeholder="Break it down into useful steps. What should a player know?" required></textarea><small class="character-count">{{ guideForm.body.length }} / 3,000 characters. Concision is a build.</small></label><p v-if="state.error" class="form-error" role="alert">{{ state.error }}</p><button class="button button-accent modal-submit" :disabled="submitting">{{ submitting ? 'Publishing…' : 'Publish guide ↗' }}</button></form>
     </template>
 
     <template v-else-if="state.modal === 'review'">
