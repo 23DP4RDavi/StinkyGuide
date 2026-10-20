@@ -1,46 +1,51 @@
 # StinkyGuide
 
-A player-powered game discovery and guide site built with **Laravel 13**, **Vue 3**, **Vite**, and **SQLite**.
+Spēlētāju veidota spēļu atklāšanas, atsauksmju un ceļvežu vietne, kas izstrādāta ar **Laravel 13**, **Vue 3**, **Vite** un **SQLite**.
 
-## Get started
+StinkyGuide palīdz atrast spēles atbilstoši interesēm, sekot līdzi savam spēļu sarakstam un dalīties ar noderīgiem ceļvežiem un godīgām atsauksmēm. Vietnei ir tumšs, purva iedvesmots dizains ar vieglu humora devu.
 
-Requirements: PHP 8.3+ with PDO SQLite, Composer, and Node.js 22.13+.
+## Iestatīšana un palaišana
+
+Nepieciešams: PHP 8.3+ ar PDO SQLite paplašinājumu, Composer un Node.js 22.13+.
 
 ```powershell
 composer install
 npm install
 php artisan key:generate
-# Set ADMIN_INITIAL_PASSWORD in .env to a unique password (at least 16 characters).
+# .env failā iestatiet ADMIN_INITIAL_PASSWORD — unikālu paroli, kas ir vismaz 16 rakstzīmes gara.
 php artisan migrate --seed
 npm run dev
-
 ```
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000). `npm run dev` starts the Laravel web server and Vite together. For a production asset build, run `npm run build`; serve the app with your preferred PHP/Laravel hosting setup.
+Atveriet [http://127.0.0.1:8000](http://127.0.0.1:8000). Komanda `npm run dev` vienlaikus palaiž Laravel serveri un Vite izstrādes serveri. Lai sagatavotu resursus produkcijas videi, palaidiet `npm run build`; lietotni izvietojiet ar sev piemērotu PHP/Laravel hostinga risinājumu.
 
-## Database and migrated content
+## Datu bāze un satura imports
 
-The Laravel app uses SQLite at `database/database.sqlite`. Migrations create the account, game, recommendation, game-library, guide, helpful-vote, saved-guide, guide-comment, review, session, cache, and queue tables.
+Laravel lietotne izmanto SQLite datu bāzi `database/database.sqlite`. Migrācijas izveido tabulas kontiem, spēlēm, ieteikumiem, spēlētāju spēļu sarakstiem, ceļvežiem, noderīguma balsojumiem, saglabātajiem ceļvežiem, komentāriem, atsauksmēm, sesijām, kešatmiņai un darbu rindai.
 
-The first `php artisan db:seed` imports the existing games, guides, helpful counts, author names, reviews, and timestamps from `data/stinkyguide.sqlite`, then expands the catalogue to 97 games across shooters, RPGs, strategy, racing, sports, simulation, co-op, and more. It falls back to the bundled original sample games if the old database is missing. Seeding is safe to repeat and will not create duplicate sample content; run it again after updating the app to add new catalogue entries. The original database stays untouched; after the import, new accounts and community posts live in `database/database.sqlite`.
+Pirmā `php artisan db:seed` palaišana importē esošās spēles, ceļvežus, noderīguma balsis, autoru vārdus, atsauksmes un to datumus no `data/stinkyguide.sqlite`, pēc tam papildina katalogu līdz 97 spēlēm. Katalogā ir šāvēji, lomu spēles, stratēģijas, sacīkšu, sporta, simulācijas un kooperatīvās spēles, kā arī citas kategorijas. Ja vecā datu bāze nav pieejama, tiek izmantots sākotnēji iekļautais spēļu paraugs.
 
-Back up `database/database.sqlite` to retain your player accounts and posts. Database and environment files are excluded from Git.
+Seederi var palaist atkārtoti — tas neveidos dublētu paraugsaturu. Palaidiet to pēc lietotnes atjaunināšanas, lai pievienotu jaunās kataloga spēles. Sākotnējā datu bāze netiek mainīta; pēc importa jauni konti un kopienas saturs tiek glabāts `database/database.sqlite`.
 
-## Admin account and traffic monitoring
+Lai saglabātu spēlētāju kontus un ierakstus, veidojiet `database/database.sqlite` rezerves kopijas. Datu bāzes un vides konfigurācijas faili ir izslēgti no Git.
 
-Set `ADMIN_EMAIL` (defaults to `admin@admin.lv`) and a unique `ADMIN_INITIAL_PASSWORD` of at least 16 characters in `.env` before running `php artisan db:seed`. The seeder creates that admin account on a new install. If the email already belongs to an account, seeding promotes it only when the secure initial password is configured, and does not change its existing password. Keep the password in `.env` or your deployment secret store; do not commit it.
+## Administratora konts un datplūsmas pārraudzība
 
-Admins can open **Admin** in the navigation to review recent guides, reviews, and comments, delete inappropriate community posts, and see request totals, active signed-in accounts, popular route templates, and response statuses. Traffic monitoring stores the route template, HTTP method, status, optional signed-in user ID, and timestamps only. It does not collect IP addresses, full URLs/query strings, or request bodies. Traffic records are automatically pruned after 90 days by Laravel's daily scheduler; ensure `php artisan schedule:run` is invoked each minute in production, or run `php artisan traffic:prune` manually.
+Pirms `php artisan db:seed` palaišanas `.env` failā iestatiet `ADMIN_EMAIL` (pēc noklusējuma `admin@admin.lv`) un unikālu `ADMIN_INITIAL_PASSWORD`, kas ir vismaz 16 rakstzīmes gara. Jaunā instalācijā seederis izveidos administratora kontu. Ja šāda e-pasta adrese jau ir reģistrēta, konts tiks paaugstināts par administratoru tikai tad, ja ir norādīta droša sākotnējā parole; esošā parole netiks mainīta. Glabājiet paroli `.env` failā vai izvietošanas noslēpumu glabātuvē — neiekļaujiet to Git.
 
-## What players can do
+Administratora navigācijā pieejama sadaļa **Admin**. Tajā var pārskatīt jaunākos ceļvežus, atsauksmes un komentārus, dzēst neatbilstošu kopienas saturu un skatīt pieprasījumu skaitu, aktīvos pieslēgtos kontus, biežāk izmantotos maršrutu paraugus un atbilžu statusus.
 
-- Create accounts, log in, edit their player name and profile bio, and log out. Laravel hashes passwords and manages session cookies.
-- Search games, reviews, and guides; browse the seeded game catalogue with real Steam store artwork and player-driven review scores.
-- Choose up to five interests—including shooters, racing, sports, simulation, RPG, cozy, strategy, adventure, and indie—to get games ranked by matching tags; browse all matches or search the full catalogue.
-- Add games to a backlog, mark them as playing, completed, or dropped, and manage them from **My games**.
-- Write and filter game reviews, share playtime, and explore reviews on game details.
-- Publish guides for any game, including ones outside the catalogue, in categories such as walkthroughs, builds, boss strategies, collectibles, achievements, and tips; comment, save guides for later, and vote on whether a guide helped.
+Datplūsmas pārraudzība saglabā tikai maršruta paraugu, HTTP metodi, statusu, ja lietotājs ir pieslēdzies — tā ID, kā arī laika zīmogus. Tā nesaglabā IP adreses, pilnus URL vai vaicājuma parametrus un pieprasījumu saturu. Laravel ikdienas plānotājs automātiski dzēš datplūsmas ierakstus, kas vecāki par 90 dienām. Produkcijas vidē nodrošiniet `php artisan schedule:run` izpildi katru minūti vai palaidiet `php artisan traffic:prune` manuāli.
 
-Use `php artisan test` to run the Laravel feature tests.
+## Ko var darīt spēlētāji
 
-Game cover art is served by Steam’s public artwork CDN, so viewing images requires an internet connection.
+- Izveidot kontu, pieslēgties, mainīt spēlētāja vārdu un profila aprakstu, kā arī izrakstīties. Laravel droši jaukšo paroles un pārvalda sesiju sīkdatnes.
+- Meklēt spēles, ceļvežus un atsauksmes; pārlūkot spēļu katalogu ar Steam attēliem un reālu spēlētāju vērtējumiem.
+- Izvēlēties līdz piecām interesēm — piemēram, šāvējiem, sacīkšu, sporta, simulācijas, lomu, mājīgām, stratēģijas, piedzīvojumu vai neatkarīgajām spēlēm — un saņemt ieteikumus, kas sakārtoti pēc atbilstošajām birkām. Var pārlūkot visus ieteikumus vai meklēt visā katalogā.
+- Pievienot spēles vēlmju sarakstam, atzīmēt tās kā spēlējamas, pabeigtas vai pamestas un pārvaldīt tās sadaļā **Manas spēles**.
+- Publicēt un filtrēt spēļu atsauksmes, norādīt nospēlēto laiku un lasīt atsauksmes spēļu informācijas skatā. Publiskajā atsauksmju sarakstā tiek rādītas tikai reģistrētu spēlētāju iesniegtās atsauksmes; sākotnējie paraugi netiek uzdoti par īstu spēlētāju viedokļiem.
+- Publicēt ceļvežus par jebkuru spēli — arī tādu, kas nav katalogā — un izvēlēties kategoriju, piemēram, pamācību, aprīkojuma ieteikumus, bosu taktiku, kolekcionējamos priekšmetus, sasniegumus vai padomus. Var arī komentēt, saglabāt ceļvežus vēlākam laikam un balsot par to noderīgumu.
+
+Lai palaistu Laravel funkcionalitātes testus, izmantojiet `php artisan test`.
+
+Spēļu vāku attēli tiek ielādēti no publiskā Steam attēlu CDN, tāpēc to skatīšanai nepieciešams interneta savienojums.
