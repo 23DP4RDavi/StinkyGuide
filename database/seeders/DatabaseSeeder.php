@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Game;
 use App\Models\Guide;
 use App\Models\Review;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use PDO;
@@ -19,7 +20,10 @@ class DatabaseSeeder extends Seeder
         $legacyGuides = $legacy?->query('SELECT * FROM guides ORDER BY id')->fetchAll(PDO::FETCH_ASSOC) ?: [];
         $legacyReviews = $legacy?->query('SELECT * FROM reviews ORDER BY id')->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        DB::transaction(function () use ($legacyGames, $legacyGuides, $legacyReviews): void {
+        $adminEmail = strtolower((string) config('admin.email'));
+        $adminPassword = config('admin.initial_password');
+
+        DB::transaction(function () use ($legacyGames, $legacyGuides, $legacyReviews, $adminEmail, $adminPassword): void {
             $gameDefinitions = $legacyGames ?: [
                 ['name' => 'Elden Ring', 'genre' => 'Action RPG · Open world', 'steam_app_id' => 1245620, 'tags_json' => '["Adventure","RPG"]', 'match_score' => 96, 'platform' => 'PC · PS5'],
                 ['name' => 'Hades II', 'genre' => 'Roguelike · Action', 'steam_app_id' => 1145350, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 92, 'platform' => 'PC'],
@@ -63,6 +67,64 @@ class DatabaseSeeder extends Seeder
                 ['name' => 'Valheim', 'genre' => 'Survival · Co-op', 'steam_app_id' => 892970, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 88, 'platform' => 'PC · CONSOLE'],
                 ['name' => 'Vampire Survivors', 'genre' => 'Roguelike · Action', 'steam_app_id' => 1794680, 'tags_json' => '["Indie","Strategy"]', 'match_score' => 88, 'platform' => 'EVERYWHERE'],
                 ['name' => 'Grounded', 'genre' => 'Survival · Co-op', 'steam_app_id' => 962130, 'tags_json' => '["Adventure","Cozy"]', 'match_score' => 85, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Counter-Strike 2', 'genre' => 'Tactical · Competitive shooter', 'steam_app_id' => 730, 'tags_json' => '["Shooter","Strategy"]', 'match_score' => 98, 'platform' => 'PC'],
+                ['name' => "Tom Clancy's Rainbow Six Siege", 'genre' => 'Tactical · Competitive shooter', 'steam_app_id' => 359550, 'tags_json' => '["Shooter","Strategy"]', 'match_score' => 95, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Apex Legends', 'genre' => 'Battle royale · Hero shooter', 'steam_app_id' => 1172470, 'tags_json' => '["Shooter"]', 'match_score' => 94, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Overwatch 2', 'genre' => 'Team-based · Hero shooter', 'steam_app_id' => 2357570, 'tags_json' => '["Shooter","Strategy"]', 'match_score' => 92, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'PUBG: BATTLEGROUNDS', 'genre' => 'Battle royale · Shooter', 'steam_app_id' => 578080, 'tags_json' => '["Shooter"]', 'match_score' => 91, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Team Fortress 2', 'genre' => 'Team-based · Class shooter', 'steam_app_id' => 440, 'tags_json' => '["Shooter","Strategy"]', 'match_score' => 90, 'platform' => 'PC'],
+                ['name' => 'Warframe', 'genre' => 'Action · Co-op shooter', 'steam_app_id' => 230410, 'tags_json' => '["Shooter","RPG"]', 'match_score' => 94, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Destiny 2', 'genre' => 'Action · Online shooter', 'steam_app_id' => 1085660, 'tags_json' => '["Shooter","RPG"]', 'match_score' => 91, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'THE FINALS', 'genre' => 'Competitive · Arena shooter', 'steam_app_id' => 2073850, 'tags_json' => '["Shooter"]', 'match_score' => 89, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'HELLDIVERS 2', 'genre' => 'Co-op · Sci-fi shooter', 'steam_app_id' => 553850, 'tags_json' => '["Shooter","Adventure"]', 'match_score' => 92, 'platform' => 'PC · PS5'],
+                ['name' => 'Left 4 Dead 2', 'genre' => 'Co-op · Zombie shooter', 'steam_app_id' => 550, 'tags_json' => '["Shooter","Adventure"]', 'match_score' => 90, 'platform' => 'PC'],
+                ['name' => 'Borderlands 3', 'genre' => 'Action RPG · Looter shooter', 'steam_app_id' => 397540, 'tags_json' => '["Shooter","RPG"]', 'match_score' => 87, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Grand Theft Auto V', 'genre' => 'Open world · Action', 'steam_app_id' => 271590, 'tags_json' => '["Adventure","Shooter"]', 'match_score' => 95, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Red Dead Redemption 2', 'genre' => 'Open world · Adventure', 'steam_app_id' => 1174180, 'tags_json' => '["Adventure","RPG"]', 'match_score' => 97, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Forza Horizon 5', 'genre' => 'Open world · Racing', 'steam_app_id' => 1551360, 'tags_json' => '["Racing"]', 'match_score' => 93, 'platform' => 'PC · XBOX'],
+                ['name' => 'Hogwarts Legacy', 'genre' => 'Action RPG · Fantasy', 'steam_app_id' => 990080, 'tags_json' => '["RPG","Adventure"]', 'match_score' => 90, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'God of War', 'genre' => 'Action · Mythology', 'steam_app_id' => 1593500, 'tags_json' => '["Adventure","RPG"]', 'match_score' => 93, 'platform' => 'PC · PLAYSTATION'],
+                ['name' => 'Marvel’s Spider-Man Remastered', 'genre' => 'Open world · Superhero', 'steam_app_id' => 1817070, 'tags_json' => '["Adventure"]', 'match_score' => 94, 'platform' => 'PC · PLAYSTATION'],
+                ['name' => 'Resident Evil 4', 'genre' => 'Survival horror · Action', 'steam_app_id' => 2050650, 'tags_json' => '["Shooter","Adventure"]', 'match_score' => 94, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Dead by Daylight', 'genre' => 'Multiplayer · Survival horror', 'steam_app_id' => 381210, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 88, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Dota 2', 'genre' => 'Competitive · MOBA', 'steam_app_id' => 570, 'tags_json' => '["Strategy"]', 'match_score' => 94, 'platform' => 'PC'],
+                ['name' => 'Sid Meier’s Civilization VI', 'genre' => 'Turn-based · 4X strategy', 'steam_app_id' => 289070, 'tags_json' => '["Strategy"]', 'match_score' => 93, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'The Sims 4', 'genre' => 'Life sim · Creative', 'steam_app_id' => 1222670, 'tags_json' => '["Simulation","Cozy"]', 'match_score' => 91, 'platform' => 'PC'],
+                ['name' => 'Cities: Skylines II', 'genre' => 'City builder · Simulation', 'steam_app_id' => 949230, 'tags_json' => '["Simulation","Strategy"]', 'match_score' => 86, 'platform' => 'PC'],
+                ['name' => 'It Takes Two', 'genre' => 'Co-op · Platform adventure', 'steam_app_id' => 1426210, 'tags_json' => '["Cozy","Adventure"]', 'match_score' => 93, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Among Us', 'genre' => 'Social deduction · Party', 'steam_app_id' => 945360, 'tags_json' => '["Strategy","Indie"]', 'match_score' => 89, 'platform' => 'EVERYWHERE'],
+                ['name' => 'Fall Guys', 'genre' => 'Party · Platformer', 'steam_app_id' => 1097150, 'tags_json' => '["Indie","Cozy"]', 'match_score' => 87, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Euro Truck Simulator 2', 'genre' => 'Driving · Simulation', 'steam_app_id' => 227300, 'tags_json' => '["Simulation","Racing"]', 'match_score' => 90, 'platform' => 'PC'],
+                ['name' => 'PowerWash Simulator', 'genre' => 'Casual · Simulation', 'steam_app_id' => 1290000, 'tags_json' => '["Simulation","Cozy"]', 'match_score' => 89, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Palworld', 'genre' => 'Open world · Creature survival', 'steam_app_id' => 1623730, 'tags_json' => '["Adventure","RPG"]', 'match_score' => 89, 'platform' => 'PC · XBOX'],
+                ['name' => 'Rust', 'genre' => 'Online · Survival', 'steam_app_id' => 252490, 'tags_json' => '["Adventure","Shooter"]', 'match_score' => 88, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Sons Of The Forest', 'genre' => 'Survival · Horror', 'steam_app_id' => 1326470, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 90, 'platform' => 'PC'],
+                ['name' => 'Sea of Thieves', 'genre' => 'Open world · Co-op adventure', 'steam_app_id' => 1172620, 'tags_json' => '["Adventure"]', 'match_score' => 91, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Monster Hunter Rise', 'genre' => 'Action RPG · Co-op', 'steam_app_id' => 1446780, 'tags_json' => '["RPG","Adventure"]', 'match_score' => 90, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Persona 5 Royal', 'genre' => 'JRPG · Life sim', 'steam_app_id' => 1687950, 'tags_json' => '["RPG","Strategy"]', 'match_score' => 95, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'House Flipper 2', 'genre' => 'Creative · Simulation', 'steam_app_id' => 1190970, 'tags_json' => '["Simulation","Cozy"]', 'match_score' => 87, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Age of Empires IV: Anniversary Edition', 'genre' => 'Real-time · Strategy', 'steam_app_id' => 1466860, 'tags_json' => '["Strategy"]', 'match_score' => 91, 'platform' => 'PC · XBOX'],
+                ['name' => 'Hades', 'genre' => 'Roguelike · Action', 'steam_app_id' => 1145360, 'tags_json' => '["Indie","Strategy"]', 'match_score' => 94, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Satisfactory', 'genre' => 'Factory building · Simulation', 'steam_app_id' => 526870, 'tags_json' => '["Simulation","Strategy"]', 'match_score' => 92, 'platform' => 'PC'],
+                ['name' => 'Stellaris', 'genre' => 'Grand strategy · Sci-fi', 'steam_app_id' => 281990, 'tags_json' => '["Strategy"]', 'match_score' => 90, 'platform' => 'PC'],
+                ['name' => 'Brotato', 'genre' => 'Arena survival · Roguelike', 'steam_app_id' => 1942280, 'tags_json' => '["Indie","Strategy"]', 'match_score' => 88, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Brawlhalla', 'genre' => 'Platform fighter · Party', 'steam_app_id' => 291550, 'tags_json' => '["Indie","Adventure"]', 'match_score' => 86, 'platform' => 'EVERYWHERE'],
+                ['name' => 'Subnautica: Below Zero', 'genre' => 'Survival · Exploration', 'steam_app_id' => 848450, 'tags_json' => '["Adventure","Cozy"]', 'match_score' => 88, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Resident Evil Village', 'genre' => 'Survival horror · Action', 'steam_app_id' => 1196590, 'tags_json' => '["Shooter","Adventure"]', 'match_score' => 91, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Sid Meier’s Civilization VII', 'genre' => 'Turn-based · 4X strategy', 'steam_app_id' => 1295660, 'tags_json' => '["Strategy"]', 'match_score' => 89, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Pacific Drive', 'genre' => 'Survival · Driving adventure', 'steam_app_id' => 1458140, 'tags_json' => '["Racing","Adventure"]', 'match_score' => 87, 'platform' => 'PC · PLAYSTATION'],
+                ['name' => 'Manor Lords', 'genre' => 'City builder · Strategy', 'steam_app_id' => 1363080, 'tags_json' => '["Strategy","Simulation"]', 'match_score' => 90, 'platform' => 'PC'],
+                ['name' => 'Cult of the Lamb', 'genre' => 'Roguelike · Colony sim', 'steam_app_id' => 1313140, 'tags_json' => '["Indie","Strategy"]', 'match_score' => 91, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'TUNIC', 'genre' => 'Action · Exploration puzzle', 'steam_app_id' => 553420, 'tags_json' => '["Adventure","Indie"]', 'match_score' => 89, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Need for Speed Heat', 'genre' => 'Street racing · Open world', 'steam_app_id' => 1222680, 'tags_json' => '["Racing"]', 'match_score' => 88, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'EA SPORTS FC 25', 'genre' => 'Football · Sports', 'steam_app_id' => 2669320, 'tags_json' => '["Sports"]', 'match_score' => 87, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'NBA 2K25', 'genre' => 'Basketball · Sports', 'steam_app_id' => 2878980, 'tags_json' => '["Sports"]', 'match_score' => 84, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Farming Simulator 25', 'genre' => 'Farming · Simulation', 'steam_app_id' => 2300320, 'tags_json' => '["Simulation","Cozy"]', 'match_score' => 88, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Crusader Kings III', 'genre' => 'Grand strategy · Role-playing', 'steam_app_id' => 1158310, 'tags_json' => '["Strategy","RPG"]', 'match_score' => 90, 'platform' => 'PC · CONSOLE'],
+                ['name' => 'Planet Zoo', 'genre' => 'Zoo management · Simulation', 'steam_app_id' => 703080, 'tags_json' => '["Simulation","Cozy"]', 'match_score' => 88, 'platform' => 'PC'],
+                ['name' => 'Oxygen Not Included', 'genre' => 'Colony sim · Survival', 'steam_app_id' => 457140, 'tags_json' => '["Simulation","Strategy"]', 'match_score' => 89, 'platform' => 'PC'],
+                ['name' => 'Black Myth: Wukong', 'genre' => 'Action RPG · Mythology', 'steam_app_id' => 2358720, 'tags_json' => '["Adventure","RPG"]', 'match_score' => 93, 'platform' => 'PC · PLAYSTATION'],
+                ['name' => 'Starfield', 'genre' => 'Sci-fi · Open-world RPG', 'steam_app_id' => 1716740, 'tags_json' => '["RPG","Adventure"]', 'match_score' => 85, 'platform' => 'PC · XBOX'],
             ];
 
             foreach ([...$gameDefinitions, ...$additionalGames] as $row) {
@@ -126,6 +188,21 @@ class DatabaseSeeder extends Seeder
                         'updated_at' => $row['created_at'] ?? now(),
                     ],
                 ));
+            }
+
+            $admin = User::query()->whereRaw('lower(email) = ?', [$adminEmail])->first();
+            $hasSecureInitialPassword = is_string($adminPassword) && mb_strlen($adminPassword) >= 16;
+
+            if ($admin && $hasSecureInitialPassword) {
+                $admin->forceFill(['is_admin' => true])->save();
+            } elseif (! $admin && $hasSecureInitialPassword) {
+                User::create([
+                    'name' => 'StinkyGuide Admin',
+                    'email' => $adminEmail,
+                    'password' => $adminPassword,
+                ])->forceFill(['is_admin' => true])->save();
+            } else {
+                $this->command?->warn('Admin account not created or promoted. Set ADMIN_INITIAL_PASSWORD to a unique password of at least 16 characters, then run php artisan db:seed.');
             }
         });
     }

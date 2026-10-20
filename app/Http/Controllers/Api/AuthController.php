@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Models\UserInterest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,7 +17,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         return response()->json([
-            'user' => $user ? $user->only('id', 'name', 'email', 'bio') : null,
+            'user' => $user ? $this->serializeUser($user) : null,
             'interests' => $user ? $user->interests()->pluck('interest')->all() : [],
         ]);
     }
@@ -40,7 +39,7 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return response()->json(['user' => $user->only('id', 'name', 'email', 'bio'), 'interests' => []], 201);
+        return response()->json(['user' => $this->serializeUser($user), 'interests' => []], 201);
     }
 
     public function login(Request $request): JsonResponse
@@ -58,7 +57,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         return response()->json([
-            'user' => $user->only('id', 'name', 'email', 'bio'),
+            'user' => $this->serializeUser($user),
             'interests' => $user->interests()->pluck('interest')->all(),
         ]);
     }
@@ -84,6 +83,14 @@ class AuthController extends Controller
             'bio' => trim($validated['bio'] ?? ''),
         ]);
 
-        return response()->json(['user' => $user->only('id', 'name', 'email', 'bio')]);
+        return response()->json(['user' => $this->serializeUser($user)]);
+    }
+
+    private function serializeUser(User $user): array
+    {
+        return [
+            ...$user->only('id', 'name', 'email', 'bio'),
+            'is_admin' => $user->is_admin,
+        ];
     }
 }

@@ -5,14 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Game;
 use App\Models\GameLibrary;
-use App\Models\UserInterest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class GameController extends Controller
 {
-    private const INTERESTS = ['Adventure', 'Cozy', 'RPG', 'Strategy', 'Indie'];
+    private const INTERESTS = ['Adventure', 'Cozy', 'RPG', 'Strategy', 'Indie', 'Shooter', 'Racing', 'Simulation', 'Sports'];
 
     private const LIBRARY_STATUSES = ['wishlist', 'playing', 'completed', 'dropped'];
 
@@ -25,8 +24,8 @@ class GameController extends Controller
             : collect();
 
         $games = Game::query()
-            ->withCount('reviews')
-            ->withAvg('reviews', 'rating')
+            ->withCount('communityReviews')
+            ->withAvg('communityReviews', 'rating')
             ->orderBy('name')
             ->get()
             ->map(function (Game $game) use ($interests, $library): array {
@@ -45,8 +44,8 @@ class GameController extends Controller
                     'tags' => $tags,
                     'match' => $match,
                     'platform' => $game->platform,
-                    'rating' => $game->reviews_avg_rating ? number_format((float) $game->reviews_avg_rating * 2, 1) : 'NEW',
-                    'reviewCount' => $game->reviews_count,
+                    'rating' => $game->community_reviews_avg_rating ? number_format((float) $game->community_reviews_avg_rating * 2, 1) : 'NEW',
+                    'reviewCount' => $game->community_reviews_count,
                     'libraryStatus' => $library[$game->id] ?? null,
                 ];
             })
@@ -58,7 +57,7 @@ class GameController extends Controller
 
     public function show(Game $game): JsonResponse
     {
-        $game->loadCount('reviews')->loadAvg('reviews', 'rating');
+        $game->loadCount('communityReviews')->loadAvg('communityReviews', 'rating');
 
         return response()->json([
             'game' => [
@@ -69,15 +68,15 @@ class GameController extends Controller
                 'imageUrl' => "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{$game->steam_app_id}/header.jpg",
                 'tags' => $game->tags,
                 'platform' => $game->platform,
-                'rating' => $game->reviews_avg_rating ? number_format((float) $game->reviews_avg_rating * 2, 1) : 'NEW',
-                'reviewCount' => $game->reviews_count,
+                'rating' => $game->community_reviews_avg_rating ? number_format((float) $game->community_reviews_avg_rating * 2, 1) : 'NEW',
+                'reviewCount' => $game->community_reviews_count,
             ],
-            'reviews' => $game->reviews()->with('author:id,name')->latest()->take(20)->get()->map(
+            'reviews' => $game->communityReviews()->with('author:id,name')->latest()->take(20)->get()->map(
                 fn ($review): array => [
                     'id' => $review->id,
                     'rating' => $review->rating,
                     'body' => $review->body,
-                    'author' => $review->author?->name ?? $review->seeded_author ?? 'player',
+                    'author' => $review->author?->name ?? 'Former player',
                     'hoursPlayed' => $review->hours_played,
                     'createdAt' => $review->created_at,
                 ]
@@ -89,7 +88,7 @@ class GameController extends Controller
     {
         $validated = $request->validate([
             'interests' => ['required', 'array', 'max:5'],
-            'interests.*' => ['required', 'string', 'distinct', 'in:Adventure,Cozy,RPG,Strategy,Indie'],
+            'interests.*' => ['required', 'string', 'distinct', 'in:'.implode(',', self::INTERESTS)],
         ]);
         $user = $request->user();
 

@@ -13,7 +13,7 @@ class ReviewController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $reviews = Review::query()->with('author:id,name')
+        $reviews = Review::query()->whereNull('seeded_author')->with('author:id,name')
             ->when($request->filled('game'), fn ($query) => $query->where('game_name', 'like', '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $request->string('game')->toString()).'%'))
             ->when($request->filled('rating'), fn ($query) => $query->where('rating', $request->integer('rating')))
             ->latest()
@@ -21,7 +21,7 @@ class ReviewController extends Controller
             ->get()
             ->map(fn (Review $review): array => $this->serializeReview($review));
 
-        $summary = Review::query()
+        $summary = Review::query()->whereNull('seeded_author')
             ->selectRaw('COUNT(*) as count, AVG(rating) as average_rating')
             ->first();
 
@@ -63,7 +63,7 @@ class ReviewController extends Controller
             'rating' => $review->rating,
             'body' => $review->body,
             'hoursPlayed' => $review->hours_played,
-            'author' => $review->author?->name ?? $review->seeded_author ?? 'player',
+            'author' => $review->author?->name ?? 'Former player',
             'createdAt' => $review->created_at,
         ];
     }

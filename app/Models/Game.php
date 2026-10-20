@@ -19,6 +19,11 @@ class Game extends Model
         return $this->hasMany(Review::class);
     }
 
+    public function communityReviews(): HasMany
+    {
+        return $this->reviews()->whereNull('seeded_author');
+    }
+
     public function libraryEntries(): HasMany
     {
         return $this->hasMany(GameLibrary::class);

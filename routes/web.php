@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CommunityController;
 use App\Http\Controllers\Api\GameController;
@@ -33,4 +34,11 @@ Route::prefix('api')->group(function (): void {
     Route::get('/reviews', [ReviewController::class, 'index']);
     Route::post('/reviews', [ReviewController::class, 'store'])->middleware('auth');
     Route::get('/stats', [CommunityController::class, 'stats']);
+
+    Route::prefix('admin')->middleware(['auth', 'admin'])->group(function (): void {
+        Route::get('/', [AdminController::class, 'index']);
+        Route::delete('/guides/{guide}', [AdminController::class, 'destroyGuide'])->whereNumber('guide');
+        Route::delete('/reviews/{review}', [AdminController::class, 'destroyReview'])->whereNumber('review');
+        Route::delete('/comments/{comment}', [AdminController::class, 'destroyComment'])->whereNumber('comment');
+    });
 });

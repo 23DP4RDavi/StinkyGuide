@@ -14,7 +14,10 @@ class CommunityController extends Controller
 {
     public function stats(): JsonResponse
     {
-        $reviews = Review::query()->selectRaw('COUNT(*) AS count, AVG(rating) AS average_rating')->first();
+        $reviews = Review::query()
+            ->whereNull('seeded_author')
+            ->selectRaw('COUNT(*) AS count, AVG(rating) AS average_rating')
+            ->first();
 
         return response()->json([
             'guides' => Guide::count(),

@@ -7,6 +7,10 @@ const interestOptions = [
   { name: 'RPG', icon: '✳' },
   { name: 'Strategy', icon: '▦' },
   { name: 'Indie', icon: '✦' },
+  { name: 'Shooter', icon: '⌖' },
+  { name: 'Racing', icon: '↗' },
+  { name: 'Simulation', icon: '▤' },
+  { name: 'Sports', icon: '⚽' },
 ];
 const guideTypes = [
   { value: 'all', label: 'All guides' },
@@ -35,6 +39,9 @@ const state = ref({
   interests: ['Adventure'],
   library: [],
   savedGuides: [],
+  adminData: null,
+  adminLoading: false,
+  adminDeleting: '',
   stats: { games: 0, guides: 0, players: 0, reviews: 0, averageRating: 0 },
   summary: { count: 0, averageRating: 0 },
   search: '',
@@ -42,12 +49,17 @@ const state = ref({
   guideFilter: 'all',
   guideSort: 'helpful',
   reviewFilter: 0,
+  reviewSearch: '',
+  reviewGameFilter: '',
+  reviewSort: 'newest',
+  showAllReviews: false,
   view: 'discover',
   showAllGuides: false,
   modal: '',
   authMode: 'login',
   selectedGuide: null,
   selectedGame: null,
+  selectedReview: null,
   comments: [],
   toast: '',
   error: '',
@@ -106,16 +118,27 @@ const filteredGuides = computed(() => {
 });
 
 const filteredReviews = computed(() => {
-  const term = state.value.search.trim().toLowerCase();
-  return state.value.reviews.filter((review) => {
+  const term = state.value.reviewSearch.trim().toLowerCase();
+  const reviews = state.value.reviews.filter((review) => {
     const searchMatches = !term || `${review.game} ${review.body} ${review.author}`.toLowerCase().includes(term);
     const ratingMatches = state.value.reviewFilter === 0 || review.rating === state.value.reviewFilter;
-    return searchMatches && ratingMatches;
+    const gameMatches = !state.value.reviewGameFilter || review.game === state.value.reviewGameFilter;
+    return searchMatches && ratingMatches && gameMatches;
+  });
+  return reviews.sort((first, second) => {
+    if (state.value.reviewSort === 'highest') return second.rating - first.rating || new Date(second.createdAt) - new Date(first.createdAt);
+    if (state.value.reviewSort === 'lowest') return first.rating - second.rating || new Date(second.createdAt) - new Date(first.createdAt);
+    return new Date(second.createdAt) - new Date(first.createdAt);
   });
 });
 
 const featuredGame = computed(() => state.value.games.find((game) => game.name === 'Elden Ring') ?? state.value.games[0]);
-const featuredReview = computed(() => state.value.reviews[0] ?? null);
+const reviewGames = computed(() => [...new Set(state.value.reviews.map((review) => review.game))].sort((first, second) => first.localeCompare(second)));
+const featuredFilteredReview = computed(() => filteredReviews.value[0] ?? null);
+const otherVisibleReviews = computed(() => {
+  const remainingReviews = filteredReviews.value.slice(1);
+  return state.value.showAllReviews ? remainingReviews : remainingReviews.slice(0, 6);
+});
 const savedGameIds = computed(() => new Set(state.value.library.map((entry) => entry.game.id)));
 
 function recommendationReason(game) {
@@ -158,6 +181,35 @@ function navigate(view) {
     else window.scrollTo({ top: 0, behavior: 'smooth' });
   });
   if (view === 'library' || view === 'saved') loadPersonalLists();
+  if (view === 'admin') loadAdminData();
+}
+
+async function loadAdminData() {
+  if (!state.value.user?.is_admin) return;
+  state.value.adminLoading = true;
+  try {
+    state.value.adminData = await api('/api/admin');
+  } catch (error) {
+    notify(error.message);
+    state.value.view = 'discover';
+  } finally {
+    state.value.adminLoading = false;
+  }
+}
+
+async function deleteCommunityContent(type, item) {
+  if (!state.value.user?.is_admin || !window.confirm(`Delete this ${type.slice(0, -1)}? This cannot be undone.`)) return;
+
+  state.value.adminDeleting = `${type}:${item.id}`;
+  try {
+    await api(`/api/admin/${type}/${item.id}`, { method: 'DELETE' });
+    await Promise.all([loadAdminData(), reloadData()]);
+    notify('Post removed. The swamp is a little tidier.');
+  } catch (error) {
+    notify(error.message);
+  } finally {
+    state.value.adminDeleting = '';
+  }
 }
 
 function searchEverything() {
@@ -273,6 +325,10 @@ async function logout() {
 }
 
 async function toggleInterest(interest) {
+  if (!state.value.interests.includes(interest) && state.value.interests.length >= 5) {
+    notify('Pick up to five game vibes at once. The algorithm is powerful, not a wizard.');
+    return;
+  }
   const previous = [...state.value.interests];
   state.value.showAllGames = false;
   state.value.interests = previous.includes(interest)
@@ -405,6 +461,11 @@ async function openGame(game) {
   } catch (error) { notify(error.message); }
 }
 
+function openReview(review) {
+  state.value.selectedReview = review;
+  state.value.modal = 'review-detail';
+}
+
 async function saveProfile() {
   submitting.value = true;
   state.value.error = '';
@@ -461,6 +522,7 @@ onMounted(async () => {
       <a class="nav-link" :class="{ active: state.view === 'reviews' }" href="#reviews" @click="navigate('reviews')">Reviews</a>
       <a class="nav-link" :class="{ active: state.view === 'saved' }" href="#saved" @click.prevent="navigate('saved')">Saved <span class="nav-spark">♡</span></a>
       <a class="nav-link" :class="{ active: state.view === 'library' }" href="#library" @click.prevent="navigate('library')">My games <span class="nav-spark">▤</span></a>
+      <a v-if="state.user?.is_admin" class="nav-link" :class="{ active: state.view === 'admin' }" href="#admin" @click.prevent="navigate('admin')">Admin <span class="nav-spark">⚙</span></a>
     </nav>
     <div class="topbar-actions">
       <button class="icon-button search-toggle" aria-label="Focus search" title="Search" @click="focusSearch">⌕</button>
@@ -541,16 +603,72 @@ onMounted(async () => {
 
       <section class="section reviews-section page-width" id="reviews">
         <div class="section-heading"><div><div class="eyebrow">REAL TAKES, NO HYPE</div><h2>Before you <span>press play.</span></h2><p class="section-description">Hot takes from people with actual hours on the clock. You're welcome.</p></div><button class="button button-outline" @click="openReviewForm()">✎ &nbsp;Write a review</button></div>
-        <div class="review-toolbar"><span class="review-count">{{ state.summary.count }} real reviews. No “I didn't play it but…” takes.</span><select v-model.number="state.reviewFilter" aria-label="Filter reviews by rating"><option :value="0">All ratings</option><option v-for="rating in [5,4,3,2,1]" :key="rating" :value="rating">{{ rating }} star{{ rating === 1 ? '' : 's' }}</option></select></div>
-        <div v-if="featuredReview" class="review-layout">
-          <article class="review-feature"><div class="review-topline"><span class="review-label">LATEST COMMUNITY REVIEW</span><span class="review-score">{{ (featuredReview.rating * 2).toFixed(1) }} <small>/ 10</small></span></div><div class="stars" :aria-label="`${featuredReview.rating} out of 5 stars`">{{ '★'.repeat(featuredReview.rating) }}{{ '☆'.repeat(5 - featuredReview.rating) }}</div><h3>“{{ featuredReview.game }}: {{ featuredReview.body.slice(0, 70) }}{{ featuredReview.body.length > 70 ? '…' : '' }}”</h3><p>{{ featuredReview.body }}</p><div class="review-byline"><span class="mini-avatar avatar-pink">{{ featuredReview.author.slice(0, 1).toUpperCase() }}</span><span><strong>{{ featuredReview.author }}</strong><small>Played {{ featuredReview.hoursPlayed }} hours · {{ timeAgo(featuredReview.createdAt) }}</small></span><span class="reader-rating">★ {{ featuredReview.rating }}/5</span></div></article>
-          <aside class="review-sidebar"><div class="sidebar-head"><span>WHAT PLAYERS ARE SAYING</span><button @click="state.reviewFilter = 0">All reviews →</button></div><div v-for="review in filteredReviews.slice(0, 3)" :key="review.id" class="mini-review"><img v-if="gameForReview(review.game)" class="mini-review-art" :src="gameForReview(review.game).imageUrl" :alt="`${review.game} cover art`" loading="lazy" /><div v-else class="mini-review-art art-cyber"></div><div><strong>{{ review.game }}</strong><span class="mini-stars">{{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5 - review.rating) }} <b>{{ (review.rating * 2).toFixed(1) }}</b></span><small>“{{ review.body.slice(0, 49) }}{{ review.body.length > 49 ? '…' : '' }}”</small></div></div><p v-if="!filteredReviews.length" class="section-description empty-state">No reviews yet. Be the first. The game is waiting.</p><div class="review-scorecard"><span>COMMUNITY SCORE</span><strong>{{ state.summary.count ? state.summary.averageRating.toFixed(1) : '—' }} <small>/ 5</small></strong><span class="score-stars">{{ state.summary.count ? '★'.repeat(Math.round(state.summary.averageRating)) + '☆'.repeat(5 - Math.round(state.summary.averageRating)) : '☆☆☆☆☆' }}</span><small>From {{ state.summary.count }} player reviews</small></div></aside>
+        <div class="review-toolbar review-browser-toolbar">
+          <label class="review-search"><span aria-hidden="true">⌕</span><input v-model="state.reviewSearch" type="search" placeholder="Search reviews, games, players…" aria-label="Search player reviews" /></label>
+          <select v-model="state.reviewGameFilter" aria-label="Filter reviews by game"><option value="">All games</option><option v-for="game in reviewGames" :key="game" :value="game">{{ game }}</option></select>
+          <select v-model.number="state.reviewFilter" aria-label="Filter reviews by rating"><option :value="0">Any rating</option><option v-for="rating in [5,4,3,2,1]" :key="rating" :value="rating">{{ rating }} stars</option></select>
+          <select v-model="state.reviewSort" aria-label="Sort player reviews"><option value="newest">Newest first</option><option value="highest">Highest rated</option><option value="lowest">Lowest rated</option></select>
         </div>
-        <div v-else class="review-empty"><span>★</span><h3>No reviews yet. This game is mysteriously underrated.</h3><button class="button button-accent" @click="openReviewForm()">Be the first to review</button></div>
-        <div v-if="filteredReviews.length > 1" class="review-list"><article v-for="review in filteredReviews.slice(1, 5)" :key="review.id" class="review-list-card"><div class="mini-avatar">{{ review.author.slice(0, 1).toUpperCase() }}</div><div class="review-list-content"><div class="review-list-title"><strong>{{ review.game }}</strong><span class="mini-stars">{{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5 - review.rating) }}</span></div><p>{{ review.body }}</p><small>{{ review.author }} · {{ review.hoursPlayed }} hours played · {{ timeAgo(review.createdAt) }}</small></div></article></div>
+        <div class="review-browser-summary"><span>{{ filteredReviews.length }} player-submitted review{{ filteredReviews.length === 1 ? '' : 's' }}</span><span>Only reviews from StinkyGuide accounts. No made-up critics.</span></div>
+        <div v-if="featuredFilteredReview" class="review-layout">
+          <article class="review-feature"><div class="review-topline"><span class="review-label">PLAYER SPOTLIGHT</span><span class="review-score">{{ (featuredFilteredReview.rating * 2).toFixed(1) }} <small>/ 10</small></span></div><div class="stars" :aria-label="`${featuredFilteredReview.rating} out of 5 stars`">{{ '★'.repeat(featuredFilteredReview.rating) }}{{ '☆'.repeat(5 - featuredFilteredReview.rating) }}</div><h3>“{{ featuredFilteredReview.game }}: {{ featuredFilteredReview.body.slice(0, 70) }}{{ featuredFilteredReview.body.length > 70 ? '…' : '' }}”</h3><p>{{ featuredFilteredReview.body.slice(0, 260) }}{{ featuredFilteredReview.body.length > 260 ? '…' : '' }}</p><div class="review-byline"><span class="mini-avatar avatar-pink">{{ featuredFilteredReview.author.slice(0, 1).toUpperCase() }}</span><span><strong>{{ featuredFilteredReview.author }}</strong><small>Played {{ featuredFilteredReview.hoursPlayed }} hours · {{ timeAgo(featuredFilteredReview.createdAt) }}</small></span><span class="reader-rating">★ {{ featuredFilteredReview.rating }}/5</span></div><button class="button button-outline review-read-button" @click="openReview(featuredFilteredReview)">Read full review <span>↗</span></button></article>
+          <aside class="review-sidebar"><div class="review-scorecard"><span>COMMUNITY SCORE</span><strong>{{ state.summary.count ? state.summary.averageRating.toFixed(1) : '—' }} <small>/ 5</small></strong><span class="score-stars">{{ state.summary.count ? '★'.repeat(Math.round(state.summary.averageRating)) + '☆'.repeat(5 - Math.round(state.summary.averageRating)) : '☆☆☆☆☆' }}</span><small>From {{ state.summary.count }} player-submitted reviews</small></div><div class="review-trust-card"><span>✓</span><div><strong>Real player takes</strong><p>Reviews are written by logged-in StinkyGuide players. Sample showcase entries never count.</p></div></div><button class="button button-accent review-sidebar-cta" @click="openReviewForm()">✎ &nbsp;Write your review</button></aside>
+        </div>
+        <div v-else class="review-empty"><span>★</span><h3>{{ state.reviews.length ? 'No reviews match those filters.' : 'No player reviews yet.' }}</h3><p>{{ state.reviews.length ? 'Try clearing a filter—or blame the search goblin.' : 'The showcase samples are not real player reviews, so they do not appear here. Be the first logged-in player to leave a real one.' }}</p><button v-if="!state.reviews.length" class="button button-accent" @click="openReviewForm()">Be the first to review</button><button v-else class="button button-outline" @click="state.reviewSearch = ''; state.reviewGameFilter = ''; state.reviewFilter = 0; state.reviewSort = 'newest'; state.showAllReviews = false">Clear filters</button></div>
+        <div v-if="otherVisibleReviews.length" class="review-list">
+          <article v-for="review in otherVisibleReviews" :key="review.id" class="review-list-card">
+            <span class="mini-avatar">{{ review.author.slice(0, 1).toUpperCase() }}</span>
+            <div class="review-list-content">
+              <div class="review-list-title"><strong>{{ review.game }}</strong><span class="mini-stars">{{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5 - review.rating) }}</span></div>
+              <p>{{ review.body.slice(0, 180) }}{{ review.body.length > 180 ? '…' : '' }}</p>
+              <small>{{ review.author }} · {{ review.hoursPlayed }} hours played · {{ timeAgo(review.createdAt) }}</small>
+              <button class="text-button review-card-open" @click="openReview(review)">Read full review →</button>
+            </div>
+          </article>
+        </div>
+        <div v-if="filteredReviews.length > 7" class="center-action"><button class="button button-outline" @click="state.showAllReviews = !state.showAllReviews">{{ state.showAllReviews ? 'Show fewer reviews' : `Show all ${filteredReviews.length} reviews` }} <span>{{ state.showAllReviews ? '↑' : '→' }}</span></button></div>
       </section>
 
       <section class="creator-cta page-width"><div class="cta-decoration">✳</div><div><div class="eyebrow">YOU KNOW THINGS. SHARE THEM.</div><h2>Your next great guide<br />starts <span>right here.</span></h2><p>Help someone get unstuck. Share that build. Become the tab they never close.</p></div><button class="button button-dark" @click="openGuideForm">Start writing <span>↗</span></button><span class="cta-footnote">Takes about 5 minutes. Gets read for years.</span></section>
+    </main>
+
+    <main v-else-if="state.view === 'admin'" class="section page-width admin-dashboard">
+      <div class="section-heading">
+        <div><div class="eyebrow">THE SWAMP CONTROL ROOM</div><h2>Admin <span>dashboard.</span></h2><p class="section-description">Community traffic and moderation. Visitor IPs, query strings, and request contents are not collected.</p></div>
+        <button class="button button-outline" :disabled="state.adminLoading" @click="loadAdminData">↻ &nbsp;Refresh</button>
+      </div>
+      <p v-if="state.adminLoading && !state.adminData" class="section-description">Counting the little footsteps…</p>
+      <template v-else-if="state.adminData">
+        <section class="admin-metrics" aria-label="Traffic overview">
+          <article class="admin-metric"><span>REQUESTS · 24 HOURS</span><strong>{{ state.adminData.traffic.requests24h.toLocaleString() }}</strong><small>Web and API requests</small></article>
+          <article class="admin-metric"><span>SIGNED-IN PLAYERS · 24 HOURS</span><strong>{{ state.adminData.traffic.players24h.toLocaleString() }}</strong><small>Distinct authenticated accounts</small></article>
+          <article class="admin-metric"><span>GUIDES</span><strong>{{ state.adminData.content.guides.length }}</strong><small>Latest 20 shown below</small></article>
+          <article class="admin-metric"><span>REVIEWS</span><strong>{{ state.adminData.content.reviews.length }}</strong><small>Latest 20 shown below</small></article>
+        </section>
+        <section class="admin-panel">
+          <div class="admin-panel-heading"><div><h3>Traffic over the last 7 days</h3><p>Counts are based on the route template, not full URLs.</p></div></div>
+          <div class="admin-chart">
+            <div v-for="day in state.adminData.traffic.daily" :key="day.day" class="admin-chart-column">
+              <span>{{ day.requests }}</span>
+              <div class="admin-chart-track"><i :style="{ height: `${Math.max(8, day.requests / Math.max(...state.adminData.traffic.daily.map((point) => point.requests), 1) * 100)}%` }"></i></div>
+              <small>{{ new Date(`${day.day}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' }) }}</small>
+            </div>
+            <p v-if="!state.adminData.traffic.daily.length" class="section-description">No recorded traffic yet.</p>
+          </div>
+          <div class="admin-traffic-details">
+            <div><h4>Popular pages · 24h</h4><ul v-if="state.adminData.traffic.popularPages.length"><li v-for="page in state.adminData.traffic.popularPages" :key="page.path"><code>{{ page.path }}</code><strong>{{ page.requests }}</strong></li></ul><p v-else class="section-description">No page views yet.</p></div>
+            <div><h4>Response statuses · 24h</h4><ul v-if="state.adminData.traffic.statusCodes.length"><li v-for="status in state.adminData.traffic.statusCodes" :key="status.status"><code>{{ status.status }}</code><strong>{{ status.requests }}</strong></li></ul><p v-else class="section-description">No requests yet.</p></div>
+          </div>
+        </section>
+        <section class="admin-panel">
+          <div class="admin-panel-heading"><div><h3>Community moderation</h3><p>Remove guides, reviews, or comments that violate community rules.</p></div></div>
+          <div class="admin-content-grid">
+            <section class="admin-content-list"><h4>Guides <span>{{ state.adminData.content.guides.length }}</span></h4><p v-if="!state.adminData.content.guides.length" class="section-description">No guides to moderate.</p><article v-for="guide in state.adminData.content.guides" :key="guide.id" class="admin-content-row"><div><strong>{{ guide.title }}</strong><small>{{ guide.game }} · by {{ guide.author }}</small></div><button class="admin-delete" :disabled="state.adminDeleting === `guides:${guide.id}`" @click="deleteCommunityContent('guides', guide)">Delete</button></article></section>
+            <section class="admin-content-list"><h4>Reviews <span>{{ state.adminData.content.reviews.length }}</span></h4><p v-if="!state.adminData.content.reviews.length" class="section-description">No reviews to moderate.</p><article v-for="review in state.adminData.content.reviews" :key="review.id" class="admin-content-row"><div><strong>{{ review.game }}</strong><small>{{ review.body }} · by {{ review.author }}</small></div><button class="admin-delete" :disabled="state.adminDeleting === `reviews:${review.id}`" @click="deleteCommunityContent('reviews', review)">Delete</button></article></section>
+            <section class="admin-content-list"><h4>Comments <span>{{ state.adminData.content.comments.length }}</span></h4><p v-if="!state.adminData.content.comments.length" class="section-description">No comments to moderate.</p><article v-for="comment in state.adminData.content.comments" :key="comment.id" class="admin-content-row"><div><strong>{{ comment.guide }}</strong><small>{{ comment.body }} · by {{ comment.author }}</small></div><button class="admin-delete" :disabled="state.adminDeleting === `comments:${comment.id}`" @click="deleteCommunityContent('comments', comment)">Delete</button></article></section>
+          </div>
+        </section>
+      </template>
     </main>
 
     <main v-else class="section page-width dashboard-view">
@@ -572,7 +690,7 @@ onMounted(async () => {
 
   <div class="toast" :class="{ visible: state.toast }" role="status" aria-live="polite">{{ state.toast }}</div>
 
-  <dialog ref="dialog" class="modal" :class="{ 'wide-modal': ['guide', 'review', 'guide-detail', 'game-detail', 'profile'].includes(state.modal) }" @close="state.modal = ''; state.error = ''">
+  <dialog ref="dialog" class="modal" :class="{ 'wide-modal': ['guide', 'review', 'review-detail', 'guide-detail', 'game-detail', 'profile'].includes(state.modal) }" @close="state.modal = ''; state.error = ''">
     <form method="dialog" class="modal-close-form"><button class="modal-close" aria-label="Close">×</button></form>
     <template v-if="state.modal === 'auth'">
       <div class="modal-eyebrow">YOUR CORNER OF THE INTERNET</div><h2>{{ state.authMode === 'signup' ? 'Find your people.' : 'Good to have you.' }}</h2><p>{{ state.authMode === 'signup' ? 'Create an account. Your game backlog deserves better than a Notes app.' : 'Log in to save guides, review games, and resume your very important research.' }}</p>
@@ -590,12 +708,21 @@ onMounted(async () => {
       <form class="modal-form" @submit.prevent="submitReview"><label>Game<input v-model="reviewForm.game" list="review-game-options" minlength="2" maxlength="60" placeholder="What have you been playing?" required /><datalist id="review-game-options"><option v-for="game in state.games" :key="game.id" :value="game.name" /></datalist></label><label>Your rating<select v-model.number="reviewForm.rating"><option :value="5">★★★★★ — Loved it</option><option :value="4">★★★★☆ — Really good</option><option :value="3">★★★☆☆ — It was fine</option><option :value="2">★★☆☆☆ — Not for me</option><option :value="1">★☆☆☆☆ — Disappointed</option></select></label><label>Hours played (optional)<input v-model="reviewForm.hoursPlayed" type="number" min="0" max="100000" placeholder="e.g. 42" /></label><label>Your review<textarea v-model="reviewForm.body" rows="5" minlength="20" maxlength="1200" placeholder="What stood out? Who would enjoy it?" required></textarea></label><p v-if="state.error" class="form-error" role="alert">{{ state.error }}</p><button class="button button-accent modal-submit" :disabled="submitting">{{ submitting ? 'Posting…' : 'Post review ↗' }}</button></form>
     </template>
 
+    <template v-else-if="state.modal === 'review-detail' && state.selectedReview">
+      <div v-if="gameForReview(state.selectedReview.game)" class="review-detail-cover" :style="{ backgroundImage: `linear-gradient(0deg,#141510 0%,transparent 95%),url('${gameForReview(state.selectedReview.game).imageUrl}')` }"></div>
+      <div class="modal-eyebrow">PLAYER REVIEW · {{ state.selectedReview.game }}</div>
+      <h2 class="review-detail-title">{{ state.selectedReview.game }}</h2>
+      <div class="review-detail-score"><span class="stars">{{ '★'.repeat(state.selectedReview.rating) }}{{ '☆'.repeat(5 - state.selectedReview.rating) }}</span><strong>{{ state.selectedReview.rating }}/5</strong><span>{{ state.selectedReview.hoursPlayed }} hours played</span></div>
+      <p class="review-detail-body">{{ state.selectedReview.body }}</p>
+      <div class="review-detail-author"><span class="mini-avatar">{{ state.selectedReview.author.slice(0, 1).toUpperCase() }}</span><div><strong>{{ state.selectedReview.author }}</strong><small>Registered player · {{ timeAgo(state.selectedReview.createdAt) }}</small></div></div>
+    </template>
+
     <template v-else-if="state.modal === 'guide-detail' && state.selectedGuide">
       <div class="modal-eyebrow">{{ state.selectedGuide.game }} · {{ state.selectedGuide.tag }}</div><h2 class="detail-title">{{ state.selectedGuide.title }}</h2><div class="detail-byline"><span class="guide-author-avatar">{{ state.selectedGuide.avatar }}</span><strong>{{ state.selectedGuide.author }}</strong><span>{{ timeAgo(state.selectedGuide.createdAt) }}</span></div><p class="guide-full-text">{{ state.selectedGuide.summary }}</p><div class="detail-actions"><button class="guide-helpful" :class="{ liked: state.selectedGuide.helpfulByMe }" @click="toggleGuideAction(state.selectedGuide, 'helpful')">{{ state.selectedGuide.helpfulByMe ? '♥ Helpful' : '♡ This helped me' }} · {{ state.selectedGuide.helpful }}</button><button class="guide-helpful" :class="{ liked: state.selectedGuide.savedByMe }" @click="toggleGuideAction(state.selectedGuide, 'save')">{{ state.selectedGuide.savedByMe ? '▣ Saved' : '♧ Save guide' }}</button><button class="guide-helpful" @click="sharePage">↗ Share</button></div><div class="comments-section"><h3>Campfire chat <span>{{ state.comments.length }} player{{ state.comments.length === 1 ? '' : 's' }}</span></h3><div v-if="state.comments.length" class="comment-list"><article v-for="comment in state.comments" :key="comment.id" class="comment"><span class="guide-author-avatar">{{ comment.author.slice(0, 1).toUpperCase() }}</span><div><strong>{{ comment.author }} <small>{{ timeAgo(comment.createdAt) }}</small></strong><p>{{ comment.body }}</p></div></article></div><p v-else class="section-description">It's quiet around this campfire. Say hi (or drop a well-earned “gg”).</p><form class="comment-form" @submit.prevent="submitComment"><input v-model="commentDraft" maxlength="1000" placeholder="Add a kind, useful comment…" aria-label="Add a comment" /><button class="button button-accent" :disabled="submitting">Send →</button></form><p v-if="state.error" class="form-error">{{ state.error }}</p></div>
     </template>
 
     <template v-else-if="state.modal === 'game-detail' && state.selectedGame">
-      <div class="game-detail-cover" :style="{ backgroundImage: `linear-gradient(0deg,#141510 0%,transparent 95%),url('${state.selectedGame.imageUrl}')` }"></div><div class="modal-eyebrow">{{ state.selectedGame.genre }}</div><h2>{{ state.selectedGame.name }}</h2><div class="game-detail-meta"><span class="review-score">★ {{ state.selectedGame.rating }}</span><span>{{ state.selectedGame.reviewCount }} reviews</span><span>{{ state.selectedGame.platform }}</span></div><div class="detail-actions"><button class="button button-accent" @click="openReviewForm(state.selectedGame.name)">✎ Write a review</button><button class="button button-outline" @click="cycleLibrary(state.selectedGame)">{{ state.selectedGame.libraryStatus ? `${state.selectedGame.libraryStatus} · change` : '＋ Add to my games' }}</button></div><div class="comments-section"><h3>Player reviews <span>{{ state.gameReviews?.length || 0 }}</span></h3><article v-for="review in state.gameReviews || []" :key="review.id" class="review-list-card"><span class="mini-avatar">{{ review.author.slice(0, 1).toUpperCase() }}</span><div class="review-list-content"><div class="review-list-title"><strong>{{ review.author }}</strong><span class="mini-stars">{{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5 - review.rating) }}</span></div><p>{{ review.body }}</p><small>{{ review.hoursPlayed }} hours played</small></div></article><p v-if="!state.gameReviews?.length" class="section-description">No one has reviewed this game yet. Your hot take awaits.</p></div>
+      <div class="game-detail-cover" :style="{ backgroundImage: `linear-gradient(0deg,#141510 0%,transparent 95%),url('${state.selectedGame.imageUrl}')` }"></div><div class="modal-eyebrow">{{ state.selectedGame.genre }}</div><h2>{{ state.selectedGame.name }}</h2><div class="game-detail-meta"><span class="review-score">★ {{ state.selectedGame.rating }}</span><span>{{ state.selectedGame.reviewCount }} player reviews</span><span>{{ state.selectedGame.platform }}</span></div><div class="detail-actions"><button class="button button-accent" @click="openReviewForm(state.selectedGame.name)">✎ Write a review</button><button class="button button-outline" @click="cycleLibrary(state.selectedGame)">{{ state.selectedGame.libraryStatus ? `${state.selectedGame.libraryStatus} · change` : '＋ Add to my games' }}</button></div><div class="comments-section"><h3>Player reviews <span>{{ state.gameReviews?.length || 0 }}</span></h3><article v-for="review in state.gameReviews || []" :key="review.id" class="review-list-card"><span class="mini-avatar">{{ review.author.slice(0, 1).toUpperCase() }}</span><div class="review-list-content"><div class="review-list-title"><strong>{{ review.author }}</strong><span class="mini-stars">{{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5 - review.rating) }}</span></div><p>{{ review.body.slice(0, 160) }}{{ review.body.length > 160 ? '…' : '' }}</p><small>{{ review.hoursPlayed }} hours played</small><button class="text-button review-card-open" @click="openReview(review)">Read full review →</button></div></article><p v-if="!state.gameReviews?.length" class="section-description">No registered player has reviewed this game yet. Your hot take awaits.</p></div>
     </template>
 
     <template v-else-if="state.modal === 'profile'">
