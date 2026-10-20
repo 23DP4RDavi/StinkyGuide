@@ -12,6 +12,7 @@ npm install
 php artisan key:generate
 php artisan migrate --seed
 npm run dev
+
 ```
 
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000). `npm run dev` starts the Laravel web server and Vite together. For a production asset build, run `npm run build`; serve the app with your preferred PHP/Laravel hosting setup.
