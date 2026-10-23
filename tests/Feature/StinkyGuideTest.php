@@ -82,6 +82,22 @@ class StinkyGuideTest extends TestCase
         $this->assertAuthenticated();
     }
 
+    public function test_email_uniqueness_is_case_insensitive_for_registration(): void
+    {
+        $this->postJson('/api/register', [
+            'name' => 'guide_player',
+            'email' => 'player@example.com',
+            'password' => 'remember-this-password',
+        ])->assertCreated();
+
+        $this->postJson('/api/register', [
+            'name' => 'another_player',
+            'email' => 'PLAYER@example.com',
+            'password' => 'remember-this-password-2',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
+
     public function test_players_can_manage_their_game_library_and_saved_guides(): void
     {
         $user = User::factory()->create();

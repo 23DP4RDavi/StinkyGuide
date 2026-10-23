@@ -24,6 +24,11 @@ class AuthController extends Controller
 
     public function register(Request $request): JsonResponse
     {
+        $request->merge([
+            'name' => trim((string) $request->input('name')),
+            'email' => strtolower(trim((string) $request->input('email'))),
+        ]);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'min:2', 'max:24', 'regex:/^[\pL\pN_ -]+$/u'],
             'email' => ['required', 'string', 'email', 'max:254', 'unique:users,email'],
@@ -32,7 +37,7 @@ class AuthController extends Controller
 
         $user = User::create([
             'name' => $validated['name'],
-            'email' => strtolower($validated['email']),
+            'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
         ]);
 
@@ -44,12 +49,16 @@ class AuthController extends Controller
 
     public function login(Request $request): JsonResponse
     {
+        $request->merge([
+            'email' => strtolower(trim((string) $request->input('email'))),
+        ]);
+
         $credentials = $request->validate([
             'email' => ['required', 'string', 'email', 'max:254'],
             'password' => ['required', 'string', 'max:128'],
         ]);
 
-        if (! Auth::attempt(['email' => strtolower($credentials['email']), 'password' => $credentials['password']], true)) {
+        if (! Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']], true)) {
             throw ValidationException::withMessages(['email' => ['That email and password do not match. Try again.']]);
         }
 
